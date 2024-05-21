@@ -15,14 +15,13 @@ use anyhow::{Result, anyhow};
 use std::{fmt::Debug, fmt::{Display, Formatter}, fs::{File, remove_file, rename}, sync::Arc};
 use tokio::fs::File as TokioFile;
 use hyper::Body;
-use tokio::time::{timeout, Duration};
+use tokio::time::{timeout, Duration, sleep};
 use chrono::Datelike;
 use chrono::Timelike;
 use tokio::io::AsyncReadExt; // for read_to_end()
 use serde::{Deserialize, Serialize};
-use anyhow::bail;
 
-const MAX_FILE_SIZE: u64 = 2000 * 1024 * 1024; // 200 MB
+const MAX_FILE_SIZE: u64 = 500 * 1024 * 1024; // 200 MB
 const BUCKET_REGULAR_TRAFFIC: &str = "devnet-airflow-continue";
 const TABLE: &str = "move_resources";
 const BUCKET_NAME: &str = "aptos-indexer-data-etl-yuun";
@@ -185,32 +184,46 @@ impl ParquetManager {
         // let table_path = PathBuf::from(format!("{}/{}/{}/", bucket_name, gcs_bucket_root, table));
         let file_name = object_name.to_str().unwrap().to_owned(); 
         info!("Generated GCS object name: {}", file_name);
-        
         let upload_type: UploadType = UploadType::Simple(Media::new(file_name.clone()));
-        let data = Body::from(buffer);
-    
+
+
         let upload_request = UploadObjectRequest {
             bucket: BUCKET_NAME.to_owned(),
             ..Default::default()
         };
     
         info!("uploading file to GCS...");
-        let upload_result = timeout(Duration::from_secs(300), client.upload_object(&upload_request, data, &upload_type)).await;
-        
-        
-        match upload_result {
-            Ok(Ok(result)) => {
-                info!("File uploaded successfully to GCS: {}", result.name);
-                Ok(result.name)
-            },
-            Ok(Err(e)) => {
-                error!("Failed to upload file to GCS: {}", e);
-                Err(anyhow!("Failed to upload file: {}", e))
-            },
-            Err(e) => {
-                error!("Upload timed out: {}", e);
-                Err(anyhow!("Upload operation timed out"))
+
+        let max_retries = 3; // Maximum number of retries
+        let mut retry_count = 0;
+        let mut delay = 500; // Initial delay in milliseconds
+
+        loop {
+            let data = Body::from(buffer.clone()); 
+            let upload_result = timeout(Duration::from_secs(300), client.upload_object(&upload_request, data, &upload_type)).await;
+            
+            match upload_result {
+                Ok(Ok(result)) => {
+                    info!("File uploaded successfully to GCS: {}", result.name);
+                    return Ok(result.name);
+                },
+                Ok(Err(e)) => {
+                    error!("Failed to upload file to GCS: {}", e);
+                    if retry_count >= max_retries {
+                        return Err(anyhow!("Failed to upload file after retries: {}", e));
+                    }
+                },
+                Err(e) => {
+                    error!("Upload timed out: {}", e);
+                    if retry_count >= max_retries {
+                        return Err(anyhow!("Upload operation timed out after retries"));
+                    }
+                }
             }
+            
+            retry_count += 1;
+            sleep(Duration::from_millis(delay)).await;
+            delay *= 2; // Exponential backoff
         }
     }
 }
@@ -225,8 +238,8 @@ pub async fn create_parquet_manager_loop(
     let mut parquet_manager = ParquetManager::new();
 
     loop {
-        let txn_pb_res = match tokio::time::timeout(Duration::from_secs(5), parquet_manager_receiver.recv()).await {
-            Ok(Ok(txn_pb_res)) => {
+        let txn_pb_res = match parquet_manager_receiver.recv().await {
+            Ok(txn_pb_res) => {
                 info!(
                     processor_name = processor_name,
                     service_type = PROCESSOR_SERVICE_TYPE,
@@ -234,7 +247,7 @@ pub async fn create_parquet_manager_loop(
                 );
                 txn_pb_res
             },
-            Ok(Err(_e)) => {
+            Err(_e) => {
                 error!(
                     processor_name = processor_name,
                     service_type = PROCESSOR_SERVICE_TYPE,
@@ -242,18 +255,6 @@ pub async fn create_parquet_manager_loop(
                     "[Parquet Handler] Parquet manager channel has been closed",
                 );
                 ParquetData {                  // maybe add a flag that can tell it's empty
-                    data: Vec::new(),
-                    last_transaction_timestamp: None,
-                }
-            },
-            Err(_e) => {
-                error!(
-                    processor_name = processor_name,
-                    service_type = PROCESSOR_SERVICE_TYPE,
-                    error = ?_e,
-                    "[Parquet Handler] Parquet manager channel timed out due to empty channel",
-                );
-                ParquetData {
                     data: Vec::new(),
                     last_transaction_timestamp: None,
                 }
