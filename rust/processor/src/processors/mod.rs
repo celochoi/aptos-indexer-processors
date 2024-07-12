@@ -210,8 +210,7 @@ impl ProcessorConfig {
             self,
             ProcessorConfig::ParquetDefaultProcessor(_)
                 | ProcessorConfig::ParquetFungibleAssetProcessor(_)
-                            | ProcessorConfig::ParquetEventsProcessor(_)
-
+                | ProcessorConfig::ParquetEventsProcessor(_)
         )
     }
 }

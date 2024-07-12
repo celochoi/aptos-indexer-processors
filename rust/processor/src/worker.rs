@@ -20,8 +20,8 @@ use crate::{
         objects_processor::ObjectsProcessor,
         parquet_processors::{
             parquet_default_processor::ParquetDefaultProcessor,
-            parquet_fungible_asset_processor::ParquetFungibleAssetProcessor,
             parquet_events_processor::ParquetEventsProcessor,
+            parquet_fungible_asset_processor::ParquetFungibleAssetProcessor,
         },
         stake_processor::StakeProcessor,
         token_v2_processor::TokenV2Processor,
