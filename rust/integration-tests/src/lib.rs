@@ -7,7 +7,7 @@ use testcontainers::ContainerAsync;
 use std::{future::Future, sync::Arc};
 use testcontainers_modules::{postgres::{self, Postgres}, testcontainers::runners::AsyncRunner};
 
-mod test_case_1;
+mod simple_tests;
 
 pub const INTEGRATION_TESTS_PACKAGE_PREFIX: &str = "integration_tests::";
 
