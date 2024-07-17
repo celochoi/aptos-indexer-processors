@@ -54,6 +54,10 @@ pub struct TestContext {
     postgres_container: ContainerAsync<Postgres>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct TestProcessorConfig {
+}
+
 
 impl TestContext {
     // TODO: move this to builder pattern to allow chaining.
@@ -78,7 +82,7 @@ impl TestContext {
     //       assert_eq!(res["amount"], 100, "winner balance incorrect when txn order: {:?}", context.txn_order);
     //   }).await;
     // 
-    pub async fn run<F>(&self, verification_f: F) -> anyhow::Result<()>
+    pub async fn run<F>(&self, processor_config: TestProcessorConfig, verification_f: F) -> anyhow::Result<()>
     where
         F: Fn() -> anyhow::Result<()> + Send + Sync + 'static,
     {
