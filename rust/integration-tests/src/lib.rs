@@ -123,28 +123,3 @@ mod tests {
     }
 }
 
-// The framework should support
-// 1. Annotates where the transactions are loaded
-// 2. Provide an empty postgres connection
-//    - once finished, tear down automatically.
-// 3. User provides verification lambda function
-//
-// Something like
-
-// #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-// async fn test_case_1() {
-//     let txns: Transactions = TransactionLoader::for_test(current_function_name!());
-//     let config = TestConfig{
-//         processor: Processors::EventsProcessor,
-//         processor_config: ProcessorConfig::default(),
-//     };
-//     // Processor::process_transactions(txns, config);
-
-//     let test = IndexerTest::new(config).with_protos(protos);
-
-//     test.run(async move | context | {
-//         // Runs after every permutatation
-//         let res = Diesel::raw_sql(conn, "select amount from balances where user = '0x1'");
-//         assert_eq!(res["amount"], 100, "winner balance incorrect when txn order: {:?}", context.txn_order);
-//     }).await;
-// }
