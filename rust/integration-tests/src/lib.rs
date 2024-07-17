@@ -3,7 +3,9 @@ use anyhow::Context;
 use itertools::Itertools; 
 use aptos_protos::transaction::v1::Transaction;
 use processor::processors::{Processor, ProcessorTrait};
+use testcontainers::ContainerAsync;
 use std::{future::Future, sync::Arc};
+use testcontainers_modules::{postgres::{self, Postgres}, testcontainers::runners::AsyncRunner};
 
 mod test_case_1;
 
@@ -47,15 +49,27 @@ pub struct TestCaseTransactionBatch {
 pub struct TestContext {
     pub test_name: String,
     pub transaction_batches: Vec<TestCaseTransactionBatch>,
+
+    #[allow(dead_code)]
+    postgres_container: ContainerAsync<Postgres>,
 }
 
 
 impl TestContext {
     // TODO: move this to builder pattern to allow chaining.
-    pub fn new(test_name: String) -> Self {
+    pub async fn new(test_name: String) -> anyhow::Result<Self> {
         println!("Creating test context for test: {}", test_name);
         let transaction_batches = transaction_loader::TransactionLoader::for_test(test_name.clone()).unwrap();
-        Self { test_name, transaction_batches }
+        
+        let postgres_container = postgres::Postgres::default().start().await.unwrap();
+
+        Ok(Self { test_name, transaction_batches, postgres_container })
+    }
+
+    pub async fn get_db_url(&self) -> String {
+        let host = self.postgres_container.get_host().await.unwrap();
+        let port = self.postgres_container.get_host_port_ipv4(5432).await.unwrap();
+        format!("postgres://postgres:postgres@{host}:{port}/postgres")
     }
 
     // `run` functions takes a closure that is executed after the test context is created.
@@ -66,7 +80,10 @@ impl TestContext {
     //       let res = Diesel::raw_sql(conn, "select amount from balances where user = '0x1'");
     //       assert_eq!(res["amount"], 100, "winner balance incorrect when txn order: {:?}", context.txn_order);
     //   }).await;
-    pub async fn run(&self, processor: Arc<dyn ProcessorTrait>) -> anyhow::Result<()>
+    // 
+    pub async fn run<F>(&self, verification_f: F) -> anyhow::Result<()>
+    where
+        F: Fn() -> anyhow::Result<()> + Send + Sync + 'static,
     {
         // For each versioned batch, get the permutations of the transactions.
         for batch in &self.transaction_batches {
@@ -80,22 +97,23 @@ impl TestContext {
                 // Spawn a new task to process each transaction. 
                 // This is important to make sure in all cases, processor can achieve
                 // eventual consistency.
-                let mut tasks = Vec::new();
+                let mut tasks : Vec<tokio::task::JoinHandle<anyhow::Result<()>>> = Vec::new();
                 let versions = transactions.iter().map(|txn| txn.version.clone()).collect::<Vec<u64>>();
                 for txn in perm {
-                    let txn = txn.clone();
-                    let current_processor = processor.clone();
+                    let _txn = txn.clone();
+                    // let current_processor = processor.clone();
                     tasks.push(tokio::spawn(async move {
-                        // Process the transaction.
-                        // processor.process(txn).await;
-                        let start_version = txn.version;
-                        let end_version = txn.version;
-                        current_processor.process_transactions(
-                            vec![txn],
-                            start_version,
-                            end_version,
-                            None,
-                        ).await
+                        // // Process the transaction.
+                        // // processor.process(txn).await;
+                        // let start_version = txn.version;
+                        // let end_version = txn.version;
+                        // current_processor.process_transactions(
+                        //     vec![txn],
+                        //     start_version,
+                        //     end_version,
+                        //     None,
+                        // ).await
+                        Ok(())
                     }));
                     // Wait and yield to new task.
                     tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
@@ -106,6 +124,11 @@ impl TestContext {
                         format!("[Release version {}] Test failed for txn permutation: {:?} at txn version {}", release_version, versions, idx + 1)
                     })??;
                 }
+
+                // Verify the query expectations.
+                verification_f().with_context(|| {
+                    format!("[Release version {}] Verification failed for txn permutation: {:?}", release_version, versions)
+                })?;
             }
         }
         Ok(())

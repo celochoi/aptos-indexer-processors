@@ -1917,6 +1917,7 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "aptos-protos",
+ "diesel",
  "dirs",
  "itertools 0.12.1",
  "processor",
@@ -1925,6 +1926,7 @@ dependencies = [
  "serde",
  "serde_json",
  "testcontainers",
+ "testcontainers-modules",
  "tokio",
 ]
 
@@ -4026,6 +4028,15 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "url",
+]
+
+[[package]]
+name = "testcontainers-modules"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a433ba83c79b59254a8a712c2c435750272574ddbc57091b69724d2696dc57d"
+dependencies = [
+ "testcontainers",
 ]
 
 [[package]]

@@ -90,6 +90,7 @@ sha3 = "0.9.1"
 strum = { version = "0.24.1", features = ["derive"] }
 tempfile = "3.3.0"
 testcontainers = "0.20.0"
+testcontainers-modules = { version = "0.8.0", features = ["postgres"] }
 toml = "0.7.4"
 tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }
 tiny-keccak = { version = "2.0.2", features = ["keccak", "sha3"] }
