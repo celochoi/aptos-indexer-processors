@@ -27,7 +27,7 @@ macro_rules! current_test_name {
         if name.contains("::{{closure}}") {
             strip += 13;
         }
-        use crate::INTEGRATION_TESTS_PACKAGE_PREFIX;
+        use $crate::INTEGRATION_TESTS_PACKAGE_PREFIX;
         // Trim off the `integration_tests::` at the beginning and the `::f` at the end. 
         let processed_name = name[INTEGRATION_TESTS_PACKAGE_PREFIX.len()..name.len() - strip].to_string();
         // processed_name is in the format of `test_case_1::run`
@@ -58,11 +58,8 @@ pub struct TestContext {
 impl TestContext {
     // TODO: move this to builder pattern to allow chaining.
     pub async fn new(test_name: String) -> anyhow::Result<Self> {
-        println!("Creating test context for test: {}", test_name);
         let transaction_batches = transaction_loader::TransactionLoader::for_test(test_name.clone()).unwrap();
-        
         let postgres_container = postgres::Postgres::default().start().await.unwrap();
-
         Ok(Self { test_name, transaction_batches, postgres_container })
     }
 
@@ -98,7 +95,7 @@ impl TestContext {
                 // This is important to make sure in all cases, processor can achieve
                 // eventual consistency.
                 let mut tasks : Vec<tokio::task::JoinHandle<anyhow::Result<()>>> = Vec::new();
-                let versions = transactions.iter().map(|txn| txn.version.clone()).collect::<Vec<u64>>();
+                let versions = transactions.iter().map(|txn| txn.version).collect::<Vec<u64>>();
                 for txn in perm {
                     let _txn = txn.clone();
                     // let current_processor = processor.clone();

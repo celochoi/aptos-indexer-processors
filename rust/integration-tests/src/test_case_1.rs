@@ -11,8 +11,6 @@ async fn test_case_1() {
     let test_context = TestContext::new(current_name).await.unwrap();
     assert_eq!(test_context.transaction_batches.len(), 1);
     let database_url = test_context.get_db_url().await;
-    println!("database_url: {}", database_url);
-
     assert!(test_context.run(move || {
         let mut conn = PgConnection::establish(&database_url)
             .unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
