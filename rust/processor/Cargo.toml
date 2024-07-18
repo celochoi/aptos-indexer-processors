@@ -15,6 +15,7 @@ rust-version = { workspace = true }
 [dependencies]
 ahash = { workspace = true }
 anyhow = { workspace = true }
+aptos-indexer-processor-sdk = { workspace = true }
 aptos-moving-average = { workspace = true }
 aptos-protos = { workspace = true }
 async-trait = { workspace = true }
