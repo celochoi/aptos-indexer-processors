@@ -421,6 +421,7 @@ async fn parse_v2_coin(
     Vec<CurrentUnifiedFungibleAssetBalance>,
     Vec<CoinSupply>,
 ) {
+    dbg!(transactions);
     let mut fungible_asset_activities = vec![];
     let mut fungible_asset_balances = vec![];
     let mut all_coin_supply = vec![];
