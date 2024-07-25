@@ -69,7 +69,7 @@ impl TransactionFilter {
                             if let Some(function) = efp.function.as_ref() {
                                 if let Some(module) = function.module.as_ref() {
                                     if skip_contract_addresses.contains(&module.address) {
-                                        dbg!(module.address);
+                                        tracing::info!("Skip contract : {}", module.name);
                                         return false;
                                     }
                                 }
