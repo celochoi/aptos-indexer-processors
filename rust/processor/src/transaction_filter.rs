@@ -19,6 +19,8 @@ pub struct TransactionFilter {
     skip_sender_addresses: Option<ahash::HashSet<String>>,
     // Skip all transactions that aren't user transactions
     focus_user_transactions: bool,
+    // Skip transactions from these contract addresses
+    skip_contract_addresses: Option<ahash::HashSet<String>>,
 }
 
 impl TransactionFilter {
@@ -26,12 +28,14 @@ impl TransactionFilter {
         focus_contract_addresses: Option<ahash::HashSet<String>>,
         skip_sender_addresses: Option<ahash::HashSet<String>>,
         focus_user_transactions: bool,
+        skip_contract_addresses: Option<ahash::HashSet<String>>,
     ) -> Self {
         // TODO: normalize addresses
         Self {
             focus_contract_addresses,
             skip_sender_addresses,
             focus_user_transactions,
+            skip_contract_addresses
         }
     }
 
@@ -55,6 +59,22 @@ impl TransactionFilter {
                 if let Some(skip_sender_addresses) = &self.skip_sender_addresses {
                     if skip_sender_addresses.contains(&utr.sender) {
                         return false;
+                    }
+                }
+
+                // Skip if contract is in the skip list
+                if let Some(skip_contract_addresses) = &self.skip_contract_addresses {
+                    if let Some(payload) = utr.payload.as_ref() {
+                        if let Some(Payload::EntryFunctionPayload(efp)) = payload.payload.as_ref() {
+                            if let Some(function) = efp.function.as_ref() {
+                                if let Some(module) = function.module.as_ref() {
+                                    if skip_contract_addresses.contains(&module.address) {
+                                        dbg!(module.address);
+                                        return false;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
